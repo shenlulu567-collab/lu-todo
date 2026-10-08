@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LU · 待办与思考</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#faf6f0;--card:rgba(255,255,255,0.9);--card2:#f5f0e8;
+  --text:#3d3529;--text2:#8a7e6d;--accent:#e8b86d;--accent2:#f5e6c8;
+  --line:#e8e0d4;--green:#5C9A6B;--red:#d48080;--shadow:0 4px 20px rgba(139,115,85,0.1);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;}
+.header{background:linear-gradient(135deg,#fff,#faf6f0);padding:20px;box-shadow:var(--shadow);position:sticky;top:0;z-index:100;}
+.header h1{font-size:20px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.header .sub{font-size:12px;color:var(--text2);margin-top:4px;}
+.sync-status{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--accent2);color:var(--accent);margin-left:auto;}
+.sync-status.on{background:#e8f3ea;color:var(--green);}
+.tabs{display:flex;gap:0;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:73px;z-index:99;}
+.tab{flex:1;text-align:center;padding:14px;font-size:14px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all 0.2s;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:500;}
+.container{padding:16px;max-width:600px;margin:0 auto;}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow);}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.btn{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.2s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#d4a04a;}
+.btn-secondary{background:var(--card2);color:var(--text);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.input{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);font-size:14px;outline:none;background:#faf8f5;font-family:inherit;}
+.input:focus{border-color:var(--accent);}
+.textarea{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);font-size:14px;outline:none;background:#faf8f5;font-family:inherit;min-height:100px;resize:vertical;}
+.todo-item{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card2);border-radius:10px;margin-bottom:8px;}
+.checkbox{width:22px;height:22px;border-radius:6px;border:2px solid #d4c8b8;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:#fff;}
+.checkbox.checked{background:var(--green);border-color:var(--green);}
+.todo-text{flex:1;font-size:14px;}
+.todo-text.done{text-decoration:line-through;color:var(--text2);}
+.todo-tag{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent2);color:var(--accent);flex-shrink:0;}
+.todo-actions{display:flex;gap:4px;}
+.icon-btn{background:none;border:none;cursor:pointer;opacity:0.5;font-size:15px;padding:3px;}
+.icon-btn:hover{opacity:1;}
+.date-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.date-nav .date{flex:1;text-align:center;font-size:15px;font-weight:500;}
+.iconbtn{width:32px;height:32px;border-radius:8px;border:none;background:var(--card2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.progress-bar{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:8px 0;}
+.progress-bar i{display:block;height:100%;background:var(--green);border-radius:3px;transition:width 0.3s;}
+.empty{text-align:center;padding:40px 20px;color:var(--text2);}
+.empty .icon{font-size:40px;margin-bottom:10px;}
+.diary-item{background:var(--card2);border-radius:12px;padding:14px;margin-bottom:10px;}
+.diary-date{font-size:12px;color:var(--text2);margin-bottom:6px;}
+.diary-content{font-size:14px;line-height:1.7;white-space:pre-wrap;}
+.diary-mood{font-size:18px;margin-right:6px;}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:#fff;border-radius:16px;max-width:400px;width:100%;padding:20px;}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:16px;}
+.form-group{margin-bottom:12px;}
+.form-label{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;}
+.btn-group{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:2000;animation:fadeIn 0.3s;}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(-10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+.fab{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:24px;cursor:pointer;box-shadow:0 4px 16px rgba(232,184,109,0.4);z-index:90;}
+.select{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);font-size:14px;outline:none;background:#faf8f5;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:10px;}
+.cal-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;border-radius:6px;cursor:pointer;position:relative;}
+.cal-cell:hover{background:var(--card2);}
+.cal-cell.today{background:var(--accent);color:#fff;font-weight:600;}
+.cal-cell.selected{border:2px solid var(--accent);}
+.cal-cell.has-todo::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:50%;background:var(--green);}
+.cal-cell.done-all::after{background:var(--green);}
+.cal-weekday{text-align:center;font-size:11px;color:var(--text2);padding:4px 0;}
+.big-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.big-cal-cell{min-height:90px;border:1px solid var(--line);border-radius:8px;padding:6px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;overflow:hidden;}
+.big-cal-cell:hover{background:var(--card2);border-color:var(--accent);}
+.big-cal-cell.today{border-color:var(--accent);background:var(--accent2);}
+.big-cal-cell.selected{border-color:var(--green);background:#f0f7f2;}
+.big-cal-cell.other-month{opacity:0.4;}
+.big-cal-date{font-size:13px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+.big-cal-date .count{font-size:10px;font-weight:normal;color:var(--text2);background:var(--card2);padding:1px 5px;border-radius:8px;}
+.big-cal-todo{font-size:10.5px;line-height:1.3;padding:2px 4px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--card2);}
+.big-cal-todo.done{text-decoration:line-through;text-decoration-color:#bbb;color:#7a7a7a;background:#f5f5f5;}
+.big-cal-todo.tag-工作{background:#e8f0f8;color:#4a6a8a;}
+.big-cal-todo.tag-生活{background:#e8f5e8;color:#4a8a4a;}
+.big-cal-todo.tag-健康{background:#f8e8e8;color:#8a4a4a;}
+.big-cal-todo.tag-学习{background:#f0e8f8;color:#6a4a8a;}
+.big-cal-todo.tag-副业{background:#e8f5f5;color:#4a8a8a;}
+.big-cal-todo.tag-医美{background:#f8e8f5;color:#8a4a7a;}
+.big-cal-todo.tag-运动{background:#edf5e8;color:#6a8a4a;}
+.big-cal-todo.tag-理财{background:#f8f5e8;color:#8a7a4a;}
+.big-cal-todo.tag-其他{background:#f0f0f0;color:#666;}
+.login-btn{background:none;border:1px solid var(--accent);color:var(--accent);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;}
+
+/* ========== 手机端响应式优化 ========== */
+@media (max-width: 600px){
+  .container{padding:12px;}
+  .header{padding:16px;}
+  .header h1{font-size:18px;}
+  .header .sub{font-size:11px;}
+  .tab{padding:12px 4px;font-size:13px;}
+  .card{padding:14px;border-radius:14px;margin-bottom:12px;}
+  .card-title{font-size:14px;margin-bottom:10px;}
+  
+  /* 待办列表 */
+  .todo-item{padding:10px;gap:8px;}
+  .checkbox{width:24px;height:24px;font-size:14px;}
+  .todo-text{font-size:14px;line-height:1.4;}
+  .todo-tag{font-size:10px;padding:2px 6px;}
+  .icon-btn{font-size:16px;padding:4px;}
+  
+  /* 日历视图 - 手机端优化 */
+  .big-cal-grid{gap:3px;}
+  .big-cal-cell{min-height:75px;padding:4px;border-radius:6px;}
+  .big-cal-date{font-size:12px;margin-bottom:3px;}
+  .big-cal-date .count{font-size:9px;padding:1px 4px;}
+  .big-cal-todo{font-size:9.5px;line-height:1.2;padding:1px 3px;margin-bottom:1px;}
+  
+  /* 按钮尺寸确保手指可点击 */
+  .btn{padding:12px 16px;font-size:14px;min-height:44px;}
+  .btn-sm{padding:8px 12px;font-size:12px;min-height:36px;}
+  .iconbtn{width:36px;height:36px;font-size:18px;}
+  
+  /* 输入框 */
+  .input,.textarea,.select{padding:12px 14px;font-size:15px;}
+  
+  /* 浮动按钮 */
+  .fab{width:52px;height:52px;font-size:22px;bottom:16px;right:16px;}
+  
+  /* 弹窗 */
+  .modal{padding:18px;border-radius:14px;}
+  .modal-title{font-size:16px;margin-bottom:14px;}
+  .form-group{margin-bottom:14px;}
+  .form-label{font-size:12px;margin-bottom:6px;}
+  
+  /* 日记 */
+  .diary-item{padding:12px;border-radius:10px;}
+  .diary-content{font-size:14px;line-height:1.6;}
+  .diary-date{font-size:11px;}
+  
+  /* 空状态 */
+  .empty{padding:30px 16px;}
+  .empty .icon{font-size:36px;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;">
+    <div>
+      <h1>🌷 LU · 待办与思考</h1>
+      <div class="sub">温柔坚持，复利成长</div>
+    </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="login-btn" onclick="showBackupMenu()" style="margin-left:auto;">💾 备份</button>
+    <div class="sync-status" id="syncStatus" onclick="sbShowLogin()">未登录</div>
+  </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="todo" onclick="switchTab('todo')">✅ 待办</div>
+  <div class="tab" data-tab="calendar" onclick="switchTab('calendar')">📅 日历</div>
+  <div class="tab" data-tab="diary" onclick="switchTab('diary')">💭 思考</div>
+</div>
+
+<div class="container">
+  <!-- 待办页面 -->
+  <div id="page-todo">
+    <div class="card">
+      <div class="date-nav">
+        <button class="iconbtn" onclick="shiftDate(-1)">‹</button>
+        <div class="date" id="currentDate">今天</div>
+        <button class="iconbtn" onclick="shiftDate(1)">›</button>
+        <button class="btn btn-secondary btn-sm" onclick="goToday()">今天</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px;">
+        <span id="todoStats">0 / 0 项</span>
+        <span id="todoRate">0%</span>
+      </div>
+      <div class="progress-bar"><i id="todoProgress" style="width:0%"></i></div>
+    </div>
+    <div id="todoList"></div>
+    <div class="card" id="calCard" style="display:none">
+      <div class="card-title">📅 日历视图</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <button class="iconbtn" onclick="shiftMonth(-1)">‹</button>
+        <span id="calMonth" style="font-size:14px;font-weight:500;"></span>
+        <button class="iconbtn" onclick="shiftMonth(1)">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <!-- 日历页面 -->
+  <div id="page-calendar" style="display:none;">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="iconbtn" onclick="calShiftMonth(-1)">‹</button>
+          <span id="bigCalMonth" style="font-size:18px;font-weight:600;"></span>
+          <button class="iconbtn" onclick="calShiftMonth(1)">›</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="goTodayCal()">今天</button>
+      </div>
+      <div class="big-cal-grid" id="bigCalGrid"></div>
+    </div>
+    <div class="card" id="dayDetailCard">
+      <div class="card-title" id="dayDetailTitle">当日详情</div>
+      <div id="dayDetailList"></div>
+    </div>
+  </div>
+
+  <!-- 思考页面 -->
+  <div id="page-diary" style="display:none;">
+    <div id="diaryList"></div>
+  </div>
+</div>
+
+<button class="fab" onclick="openAddModal()">+</button>
+<div id="modalRoot"></div>
+
+<script>
+/* ========== 存储 ========== */
+const P='lu_';
+function DBget(k,d){try{const v=localStorage.getItem(P+k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function DBset(k,v){localStorage.setItem(P+k,JSON.stringify(v));sbPushData();}
+
+/* ========== 工具 ========== */
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function pad(n){return String(n).padStart(2,'0');}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2000);}
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* ========== Tab切换 ========== */
+let currentTab='todo';
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.getElementById('page-todo').style.display=tab==='todo'?'block':'none';
+  document.getElementById('page-calendar').style.display=tab==='calendar'?'block':'none';
+  document.getElementById('page-diary').style.display=tab==='diary'?'block':'none';
+  if(tab==='todo')renderTodo();
+  if(tab==='calendar'){
+    renderBigCal();
+    /* 默认显示当月所有已办事项 */
+    showMonthDone(bigCalMonth);
+  }
+  if(tab==='diary')renderDiary();
+}
+
+/* ========== 待办 ========== */
+let currentDate=today(), calMonth=today().slice(0,7);
+const TAGS=['工作','生活','健康','学习','副业','医美','运动','其他'];
+const TAG_COLORS={'工作':'#e0e8f0','生活':'#e0f0e0','健康':'#f0e0e0','学习':'#ece0f0','副业':'#e0f0f0','医美':'#f0e0ec','运动':'#e8f0e0','其他':'#f0ece0'};
+
+function shiftDate(n){
+  const d=new Date(currentDate);d.setDate(d.getDate()+n);
+  currentDate=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  renderTodo();
+}
+function goToday(){currentDate=today();renderTodo();}
+function shiftMonth(n){
+  const p=calMonth.split('-');const d=new Date(+p[0],+p[1]-1+n,1);
+  calMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);renderCal();
+}
+
+function getTodos(date){return DBget('todos',{})[date]||[];}
+function setTodos(date,list){const all=DBget('todos',{});all[date]=list;DBset('todos',all);}
+
+/* 获取指定日期的活跃待办 = 当天创建的 + 之前未完成自动顺延的 */
+function getActiveTodos(date){
+  const all=DBget('todos',{});
+  const result=[];
+  /* 先加当天创建的待办 */
+  (all[date]||[]).forEach(t=>result.push({...t,originDate:date,isCarried:false}));
+  /* 再加之前未完成的待办（自动顺延） */
+  Object.keys(all).forEach(d=>{
+    if(d<date){
+      all[d].forEach(t=>{
+        if(!t.done){
+          /* 避免重复：如果当天已经有同id的待办就不加 */
+          if(!result.find(x=>x.id===t.id)){
+            result.push({...t,originDate:d,isCarried:true});
+          }
+        }
+      });
+    }
+  });
+  /* 未完成的排前面，已完成的排后面 */
+  return result.sort((a,b)=>{
+    if(a.done===b.done)return 0;
+    return a.done?1:-1;
+  });
+}
+
+/* 计算未完成待办的累计天数（从创建日期到今天） */
+function getOverdueDays(dateStr){
+  const todayDate=new Date(today());
+  const itemDate=new Date(dateStr);
+  const diff=Math.floor((todayDate-itemDate)/(1000*60*60*24));
+  return diff>0?diff:0;
+}
+
+function todoToggle(date,id){
+  const list=getTodos(date);
+  const item=list.find(i=>i.id===id);
+  if(item){item.done=!item.done;if(item.done)item.doneAt=Date.now();setTodos(date,list);renderTodo();renderCal();}
+}
+function todoDel(date,id){
+  if(!confirm('确定删除？'))return;
+  setTodos(date,getTodos(date).filter(i=>i.id!==id));
+  renderTodo();renderCal();
+}
+function todoEdit(date,id){
+  const item=getTodos(date).find(i=>i.id===id);
+  if(!item)return;
+  openAddModal(date,item);
+}
+
+function renderTodo(){
+  const list=getActiveTodos(currentDate);
+  const done=list.filter(i=>i.done).length;
+  const rate=list.length?Math.round(done/list.length*100):0;
+  
+  document.getElementById('currentDate').textContent=currentDate===today()?'今天 · '+currentDate:currentDate;
+  document.getElementById('todoStats').textContent=done+' / '+list.length+' 项';
+  document.getElementById('todoRate').textContent=rate+'%';
+  document.getElementById('todoProgress').style.width=rate+'%';
+  
+  const el=document.getElementById('todoList');
+  if(list.length===0){
+    el.innerHTML='<div class="empty"><div class="icon">📝</div>这一天还没有待办<br><span style="font-size:12px">点击右下角 + 添加</span></div>';
+    return;
+  }
+  el.innerHTML=list.map(it=>{
+    /* 累计天数：未完成且是顺延过来的，显示从创建日期到当前日期的天数 */
+    let overdueBadge='';
+    if(!it.done&&it.isCarried){
+      const days=getOverdueDays(it.originDate);
+      if(days>0){
+        overdueBadge=`<span style="font-size:11px;color:#d48080;background:#f8e8e8;padding:2px 6px;border-radius:5px;margin-left:6px;flex-shrink:0;">累计${days}天</span>`;
+      }
+    }
+    /* 顺延标记 */
+    const carriedBadge=it.isCarried?`<span style="font-size:10px;color:var(--accent);background:var(--accent2);padding:1px 5px;border-radius:4px;margin-left:4px;flex-shrink:0;">自${it.originDate.slice(5)}</span>`:'';
+    /* 提醒图标 */
+    const reminderBadge=getReminderBadge(it);
+    return `
+    <div class="todo-item">
+      <div class="checkbox ${it.done?'checked':''}" onclick="todoToggle('${it.originDate}','${it.id}')">${it.done?'✓':''}</div>
+      <div class="todo-text ${it.done?'done':''}" style="display:flex;align-items:center;flex-wrap:wrap;">${esc(it.text)}${carriedBadge}${reminderBadge}${overdueBadge}</div>
+      <span class="todo-tag" style="background:${TAG_COLORS[it.tag]||TAG_COLORS['其他']};color:var(--text2)">${it.tag||'其他'}</span>
+      <div class="todo-actions">
+        <button class="icon-btn" onclick="todoEdit('${it.originDate}','${it.id}')">✏️</button>
+        <button class="icon-btn" onclick="todoDel('${it.originDate}','${it.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+  
+  renderCal();
+}
+
+function renderCal(){
+  const p=calMonth.split('-'),y=+p[0],m=+p[1];
+  const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
+  document.getElementById('calMonth').textContent=y+'年'+m+'月';
+  
+  let cells='';
+  ['日','一','二','三','四','五','六'].forEach(w=>cells+=`<div class="cal-weekday">${w}</div>`);
+  for(let i=0;i<lead;i++)cells+='<div></div>';
+  for(let i=1;i<=days;i++){
+    const ds=y+'-'+pad(m)+'-'+pad(i);
+    const list=getTodos(ds);
+    const done=list.filter(x=>x.done).length;
+    const cls=['cal-cell'];
+    if(ds===today())cls.push('today');
+    if(ds===currentDate)cls.push('selected');
+    if(list.length>0)cls.push('has-todo');
+    cells+=`<div class="${cls.join(' ')}" onclick="currentDate='${ds}';renderTodo();">${i}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML=cells;
+}
+
+/* ========== 大日历视图 ========== */
+let bigCalMonth=today().slice(0,7), selectedDay=null;
+function calShiftMonth(n){
+  const p=bigCalMonth.split('-');const d=new Date(+p[0],+p[1]-1+n,1);
+  bigCalMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);
+  renderBigCal();
+  showMonthDone(bigCalMonth); /* 切换月份时更新月度已办 */
+}
+function goTodayCal(){bigCalMonth=today().slice(0,7);renderBigCal();showMonthDone(bigCalMonth);}
+
+function renderBigCal(){
+  const p=bigCalMonth.split('-'),y=+p[0],m=+p[1];
+  const first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),lead=first.getDay();
+  const prevDays=new Date(y,m-1,0).getDate();
+  document.getElementById('bigCalMonth').textContent=y+'年'+m+'月';
+  
+  let cells='';
+  ['日','一','二','三','四','五','六'].forEach(w=>cells+=`<div style="text-align:center;font-size:12px;color:var(--text2);padding:6px 0;font-weight:500;">${w}</div>`);
+  
+  /* 上月填充 */
+  for(let i=0;i<lead;i++){
+    const day=prevDays-lead+i+1;
+    const ds=(m===1?y-1:y)+'-'+pad(m===1?12:m-1)+'-'+pad(day);
+    cells+=`<div class="big-cal-cell other-month" onclick="selectDay('${ds}')"><div class="big-cal-date">${day}</div></div>`;
+  }
+  
+  /* 当月 */
+  for(let i=1;i<=days;i++){
+    const ds=y+'-'+pad(m)+'-'+pad(i);
+    const list=getTodos(ds);
+    const done=list.filter(x=>x.done).length;
+    const cls=['big-cal-cell'];
+    if(ds===today())cls.push('today');
+    if(ds===selectedDay)cls.push('selected');
+    
+    let todosHTML='';
+    const isMobile=window.innerWidth<=600;
+    const maxShow=isMobile?3:4;
+    const textLen=isMobile?8:12;
+    /* 未完成的排前面，已完成的排后面 */
+    const sortedList=[...list].sort((a,b)=>{
+      if(a.done===b.done)return 0;
+      return a.done?1:-1;
+    });
+    const showList=sortedList.slice(0,maxShow);
+    showList.forEach(t=>{
+      const tagClass='tag-'+(t.tag||'其他');
+      todosHTML+=`<div class="big-cal-todo ${tagClass} ${t.done?'done':''}">${t.done?'✓ ':''}${esc(t.text.length>textLen?t.text.slice(0,textLen-1)+'…':t.text)}</div>`;
+    });
+    if(list.length>maxShow){
+      todosHTML+=`<div style="font-size:${isMobile?'9px':'10px'};color:var(--text2);padding-left:4px;">+${list.length-maxShow} 更多</div>`;
+    }
+    
+    cells+=`<div class="${cls.join(' ')}" onclick="selectDay('${ds}')">
+      <div class="big-cal-date"><span>${i}</span>${list.length?`<span class="count">${done}/${list.length}</span>`:''}</div>
+      ${todosHTML}
+    </div>`;
+  }
+  
+  /* 下月填充 */
+  const totalCells=lead+days;
+  const nextFill=(7-totalCells%7)%7;
+  for(let i=1;i<=nextFill;i++){
+    const ds=(m===12?y+1:y)+'-'+pad(m===12?1:m+1)+'-'+pad(i);
+    cells+=`<div class="big-cal-cell other-month" onclick="selectDay('${ds}')"><div class="big-cal-date">${i}</div></div>`;
+  }
+  
+  document.getElementById('bigCalGrid').innerHTML=cells;
+}
+
+function selectDay(ds){
+  selectedDay=ds;
+  /* 如果点击的是其他月份，切换到那个月 */
+  const p=ds.split('-');
+  const dayMonth=p[0]+'-'+p[1];
+  if(dayMonth!==bigCalMonth){bigCalMonth=dayMonth;}
+  renderBigCal();
+  showDayDetail(ds); /* 点击日期显示当天已办 */
+}
+
+/* 显示当月所有已办事项（按日期分组） */
+function showMonthDone(month){
+  const card=document.getElementById('dayDetailCard');
+  const title=document.getElementById('dayDetailTitle');
+  const el=document.getElementById('dayDetailList');
+  selectedDay=null;
+  renderBigCal();
+  
+  card.style.display='block';
+  const p=month.split('-'),y=+p[0],m=+p[1];
+  const days=new Date(y,m,0).getDate();
+  
+  /* 收集当月所有已办事项 */
+  let allDone=[];
+  for(let i=1;i<=days;i++){
+    const ds=y+'-'+pad(m)+'-'+pad(i);
+    const list=getTodos(ds);
+    list.filter(t=>t.done).forEach(t=>{
+      allDone.push({date:ds,...t});
+    });
+  }
+  
+  title.textContent=y+'年'+m+'月 · 已完成事项（共'+allDone.length+'项）';
+  
+  if(allDone.length===0){
+    el.innerHTML='<div class="empty" style="padding:24px;"><div class="icon" style="font-size:32px;">🎉</div>本月还没有已完成的事项</div>';
+    return;
+  }
+  
+  /* 按日期分组，倒序排列 */
+  const byDate={};
+  allDone.forEach(t=>{
+    if(!byDate[t.date])byDate[t.date]=[];
+    byDate[t.date].push(t);
+  });
+  const sortedDates=Object.keys(byDate).sort().reverse();
+  
+  el.innerHTML=sortedDates.map(ds=>`
+    <div style="margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--line);">
+        📅 ${ds}（${byDate[ds].length}项）
+      </div>
+      ${byDate[ds].map(t=>`
+        <div class="todo-item" style="margin-bottom:4px;">
+          <div class="checkbox checked">✓</div>
+          <div class="todo-text done">${esc(t.text)}</div>
+          <span class="todo-tag" style="background:${TAG_COLORS[t.tag]||TAG_COLORS['其他']};color:var(--text2)">${t.tag||'其他'}</span>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function showDayDetail(ds){
+  const list=getTodos(ds).filter(t=>t.done); /* 只显示已办事项 */
+  const card=document.getElementById('dayDetailCard');
+  const title=document.getElementById('dayDetailTitle');
+  const el=document.getElementById('dayDetailList');
+  
+  card.style.display='block';
+  title.textContent=ds+' · 已完成事项（'+list.length+'项）';
+  
+  if(list.length===0){
+    el.innerHTML='<div class="empty" style="padding:24px;"><div class="icon" style="font-size:32px;">📝</div>这一天没有已完成的事项<br><span style="font-size:12px;color:var(--text2);">点击上方"查看本月"可看全部</span></div>';
+    return;
+  }
+  
+  el.innerHTML=list.map(it=>`
+    <div class="todo-item">
+      <div class="checkbox checked">✓</div>
+      <div class="todo-text done">${esc(it.text)}</div>
+      <span class="todo-tag" style="background:${TAG_COLORS[it.tag]||TAG_COLORS['其他']};color:var(--text2)">${it.tag||'其他'}</span>
+    </div>`).join('');
+  
+  /* 添加返回本月按钮 */
+  el.innerHTML+=`<div style="text-align:center;margin-top:12px;"><button class="btn btn-secondary btn-sm" onclick="showMonthDone(bigCalMonth)">📋 查看本月全部已办</button></div>`;
+}
+
+function toggleTodoDay(date,id){
+  const list=getTodos(date);
+  const item=list.find(i=>i.id===id);
+  if(item){item.done=!item.done;if(item.done)item.doneAt=Date.now();setTodos(date,list);renderBigCal();showDayDetail(date);}
+}
+
+/* ========== 日记/思考 ========== */
+function getDiary(){return DBget('diary',[]);}
+function setDiary(list){DBset('diary',list);}
+
+function diaryDel(id){
+  if(!confirm('确定删除？'))return;
+  setDiary(getDiary().filter(d=>d.id!==id));
+  renderDiary();
+}
+
+function renderDiary(){
+  const list=getDiary();
+  const el=document.getElementById('diaryList');
+  if(list.length===0){
+    el.innerHTML='<div class="empty"><div class="icon">💭</div>还没有思考记录<br><span style="font-size:12px">点击右下角 + 记录</span></div>';
+    return;
+  }
+  el.innerHTML=list.map(d=>`
+    <div class="diary-item">
+      <div class="diary-date">${d.mood||'📝'} ${d.date} ${d.time||''}</div>
+      <div class="diary-content">${esc(d.content)}</div>
+      <div style="text-align:right;margin-top:8px;">
+        <button class="icon-btn" onclick="openAddModal(null,null,'${d.id}')">✏️</button>
+        <button class="icon-btn" onclick="diaryDel('${d.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+/* ========== 添加/编辑弹窗 ========== */
+let editingTodoId=null, editingDiaryId=null;
+function openAddModal(date, todoItem, diaryId){
+  editingTodoId=todoItem?todoItem.id:null;
+  editingDiaryId=diaryId||null;
+  
+  const isTodo=currentTab==='todo';
+  const title=isTodo?(todoItem?'编辑待办':'添加待办'):(diaryId?'编辑思考':'记录思考');
+  
+  let body='';
+  if(isTodo){
+    const remindTime=todoItem&&todoItem.remindTime?todoItem.remindTime:'';
+    body=`
+      <div class="form-group">
+        <label class="form-label">待办内容</label>
+        <input class="input" id="f_text" value="${todoItem?esc(todoItem.text):''}" placeholder="输入待办事项...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">分类</label>
+        <select class="select" id="f_tag">
+          ${TAGS.map(t=>`<option ${todoItem&&todoItem.tag===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">日期</label>
+        <input class="input" type="date" id="f_date" value="${date||currentDate}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">⏰ 提醒时间（选填）</label>
+        <input class="input" type="datetime-local" id="f_remind" value="${remindTime}">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.5;">
+          设置后到点会发送手机通知<br>
+          <span style="color:var(--accent);">需保持网页打开，并允许通知权限</span>
+        </div>
+      </div>`;
+  }else{
+    const diary=diaryId?getDiary().find(d=>d.id===diaryId):null;
+    body=`
+      <div class="form-group">
+        <label class="form-label">心情</label>
+        <div style="display:flex;gap:8px;font-size:22px;" id="moodPicker">
+          ${['😊','🤔','😢','😡','🥰','😴','💪','🌟'].map(m=>`<span style="cursor:pointer;padding:4px;border-radius:6px;${diary&&diary.mood===m?'background:var(--accent2)':''}" onclick="selectMood(this,'${m}')">${m}</span>`).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">内容</label>
+        <textarea class="textarea" id="f_content" placeholder="记录你的思考...">${diary?esc(diary.content):''}</textarea>
+      </div>`;
+  }
+  
+  document.getElementById('modalRoot').innerHTML=`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-title">${title}</div>
+        ${body}
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+          <button class="btn btn-primary" onclick="saveItem()">保存</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+let selectedMood='😊';
+function selectMood(el,mood){
+  selectedMood=mood;
+  document.querySelectorAll('#moodPicker span').forEach(s=>s.style.background='');
+  el.style.background='var(--accent2)';
+}
+
+function saveItem(){
+  if(currentTab==='todo'){
+    const text=document.getElementById('f_text').value.trim();
+    const tag=document.getElementById('f_tag').value;
+    const date=document.getElementById('f_date').value;
+    const remindTime=document.getElementById('f_remind')?document.getElementById('f_remind').value:'';
+    if(!text){toast('请输入待办内容');return;}
+    
+    /* 如果设置了提醒时间，自动请求通知权限 */
+    if(remindTime&&Notification.permission!=='granted'){
+      requestNotificationPermission();
+    }
+    
+    if(editingTodoId){
+      const oldDate=currentDate;
+      const list=getTodos(oldDate);
+      const item=list.find(i=>i.id===editingTodoId);
+      if(item){
+        item.text=text;item.tag=tag;item.remindTime=remindTime;item.reminded=false;
+        if(date!==oldDate){
+          setTodos(oldDate,list.filter(i=>i.id!==editingTodoId));
+          const newList=getTodos(date);
+          newList.push(item);
+          setTodos(date,newList);
+          currentDate=date;
+        }else{
+          setTodos(oldDate,list);
+        }
+      }
+    }else{
+      const list=getTodos(date);
+      list.push({id:'t'+Date.now(),text,tag,done:false,ts:Date.now(),remindTime,reminded:false});
+      setTodos(date,list);
+      currentDate=date;
+    }
+    closeModal();renderTodo();
+  }else{
+    const content=document.getElementById('f_content').value.trim();
+    if(!content){toast('请输入内容');return;}
+    
+    if(editingDiaryId){
+      const list=getDiary();
+      const item=list.find(d=>d.id===editingDiaryId);
+      if(item){item.content=content;item.mood=selectedMood;setDiary(list);}
+    }else{
+      const list=getDiary();
+      const now=new Date();
+      list.unshift({
+        id:'d'+Date.now(),
+        date:now.toISOString().slice(0,10),
+        time:String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
+        content,mood:selectedMood
+      });
+      setDiary(list);
+    }
+    closeModal();renderDiary();
+  }
+}
+
+function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+
+/* ========== 数据备份与恢复 ========== */
+function showBackupMenu(){
+  document.getElementById('modalRoot').innerHTML=`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-title">💾 数据备份与恢复</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+          定期导出备份文件，防止数据丢失<br>
+          换设备或清缓存后，可导入备份恢复数据
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-primary" onclick="exportData()" style="width:100%;">📤 导出备份文件</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()" style="width:100%;">📥 导入备份文件</button>
+          <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importData(event)">
+        </div>
+        <div style="margin-top:16px;padding:12px;background:var(--card2);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6;">
+          <strong>💡 备份建议：</strong><br>
+          • 每周导出一次备份文件<br>
+          • 备份文件保存到手机相册、云盘或电脑<br>
+          • 登录云端同步后可自动备份，无需手动导出
+        </div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function exportData(){
+  try{
+    const allData={};
+    Object.keys(localStorage).forEach(k=>{
+      if(k.indexOf('lu_')===0){
+        try{allData[k]=JSON.parse(localStorage.getItem(k));}catch(e){}
+      }
+    });
+    allData._export_time=new Date().toISOString();
+    allData._export_date=today();
+    
+    const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='LU待办与思考-备份-'+today()+'.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast('✅ 备份文件已导出，请保存好');
+    DBset('last_backup_time',Date.now()); /* 更新上次备份时间 */
+    setTimeout(closeModal,1000);
+  }catch(e){
+    toast('导出失败：'+e.message);
+  }
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  
+  if(!confirm('导入备份将覆盖当前所有数据，确定继续吗？')){
+    event.target.value='';
+    return;
+  }
+  
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      let count=0;
+      Object.keys(data).forEach(k=>{
+        if(k.indexOf('lu_')===0||k==='_last_update'){
+          try{
+            localStorage.setItem(k,JSON.stringify(data[k]));
+            count++;
+          }catch(err){}
+        }
+      });
+      toast('✅ 已恢复'+count+'项数据，正在刷新...');
+      setTimeout(()=>{
+        closeModal();
+        if(currentTab==='todo')renderTodo();
+        else if(currentTab==='calendar'){renderBigCal();showMonthDone(bigCalMonth);}
+        else renderDiary();
+      },1000);
+    }catch(err){
+      toast('导入失败：文件格式不正确');
+    }
+  };
+  reader.onerror=function(){
+    toast('读取文件失败');
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+/* ========== 待办提醒通知 ========== */
+let reminderCheckTimer=null;
+let notificationPermission='default';
+
+/* 请求通知权限 */
+async function requestNotificationPermission(){
+  if(!('Notification' in window)){
+    toast('当前浏览器不支持通知功能');
+    return false;
+  }
+  if(Notification.permission==='granted'){
+    notificationPermission='granted';
+    return true;
+  }
+  try{
+    const result=await Notification.requestPermission();
+    notificationPermission=result;
+    if(result==='granted'){
+      toast('✅ 通知权限已开启，到点会提醒你');
+      return true;
+    }else{
+      toast('通知权限被拒绝，无法发送提醒');
+      return false;
+    }
+  }catch(e){
+    console.warn('Notification permission error:',e);
+    return false;
+  }
+}
+
+/* 发送通知 */
+function sendNotification(title,body){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  try{
+    /* 尝试发送通知 */
+    const notification=new Notification(title,{
+      body:body,
+      icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌷</text></svg>',
+      badge:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏰</text></svg>',
+      vibrate:[200,100,200],
+      requireInteraction:true
+    });
+    /* 点击通知打开页面 */
+    notification.onclick=function(){
+      window.focus();
+      notification.close();
+    };
+    /* 同时播放提示音 */
+    playReminderSound();
+  }catch(e){
+    console.warn('Send notification failed:',e);
+  }
+}
+
+/* 播放提示音 */
+function playReminderSound(){
+  try{
+    const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const oscillator=audioCtx.createOscillator();
+    const gainNode=audioCtx.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.frequency.value=800;
+    oscillator.type='sine';
+    gainNode.gain.setValueAtTime(0.3,audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01,audioCtx.currentTime+0.5);
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime+0.5);
+  }catch(e){}
+}
+
+/* 检查所有待办的提醒时间 */
+function checkReminders(){
+  const now=new Date();
+  const all=DBget('todos',{});
+  let hasUpdate=false;
+  
+  Object.keys(all).forEach(date=>{
+    all[date].forEach(todo=>{
+      if(!todo.done&&todo.remindTime&&!todo.reminded){
+        const remindDate=new Date(todo.remindTime);
+        /* 到点或已过提醒时间（5分钟内），且未提醒过 */
+        if(now>=remindDate&&(now-remindDate)<3600000){
+          sendNotification('⏰ 待办提醒',todo.text);
+          toast('⏰ 提醒：'+todo.text);
+          todo.reminded=true;
+          hasUpdate=true;
+        }
+      }
+    });
+  });
+  
+  if(hasUpdate){
+    DBset('todos',all);
+  }
+}
+
+/* 启动提醒检查（每30秒检查一次） */
+function startReminderCheck(){
+  if(reminderCheckTimer)clearInterval(reminderCheckTimer);
+  checkReminders(); /* 立即检查一次 */
+  reminderCheckTimer=setInterval(checkReminders,30000);
+  console.log('待办提醒检查已启动');
+}
+
+/* 在待办列表中显示提醒图标 */
+function getReminderBadge(todo){
+  if(!todo.remindTime||todo.done)return '';
+  const remindDate=new Date(todo.remindTime);
+  const now=new Date();
+  const isPast=remindDate<now;
+  const color=isPast?'#d48080':'var(--accent)';
+  const bg=isPast?'#f8e8e8':'var(--accent2)';
+  const timeStr=remindDate.getMonth()+1+'/'+remindDate.getDate()+' '+String(remindDate.getHours()).padStart(2,'0')+':'+String(remindDate.getMinutes()).padStart(2,'0');
+  return `<span style="font-size:10px;color:${color};background:${bg};padding:1px 5px;border-radius:4px;margin-left:4px;flex-shrink:0;">⏰${timeStr}</span>`;
+}
+
+/* ========== Supabase 云端同步 ========== */
+const SUPABASE_URL='https://vpsmoyfsvjbnqbnfdkic.supabase.co';
+const SUPABASE_KEY='sb_publishable__Oojo6z4B2s1zu5KDzXcjQ_c13-AHr9';
+let sbClient=null, sbUser=null, sbSyncing=false, sbPushTimer=null;
+
+function sbInit(){
+  try{
+    if(typeof window.supabase==='undefined'){setTimeout(sbInit,1000);return;}
+    sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+      auth:{persistSession:true,autoRefreshToken:true},
+      global:{fetch:fetch}
+    });
+    sbClient.auth.getSession().then(({data:{session}})=>{
+      sbUser=session?.user||null;
+      if(sbUser){sbUpdateStatus(true);sbPullData();}
+      else sbUpdateStatus(false);
+    }).catch(e=>{
+      console.warn('Supabase session check failed:',e.message);
+      sbUpdateStatus(false);
+    });
+    sbClient.auth.onAuthStateChange((_event,session)=>{
+      sbUser=session?.user||null;
+      if(sbUser){sbUpdateStatus(true);sbPullData();}
+      else sbUpdateStatus(false);
+    });
+  }catch(e){console.warn('Supabase init failed:',e.message);}
+}
+setTimeout(sbInit,800);
+
+function sbUpdateStatus(loggedIn){
+  const el=document.getElementById('syncStatus');
+  if(loggedIn){el.textContent='☁️ 已同步';el.classList.add('on');}
+  else{el.textContent='未登录';el.classList.remove('on');}
+}
+
+async function sbPullData(){
+  if(!sbUser||sbSyncing)return;
+  try{
+    sbSyncing=true;
+    const {data,error}=await sbClient.from('workbench_data').select('*').eq('user_id',sbUser.id).single();
+    if(error&&error.code!=='PGRST116')throw error;
+    
+    const localLast=DBget('_last_update',0);
+    const cloudLast=data?.updated_at?new Date(data.updated_at).getTime():0;
+    
+    if(data&&data.data&&cloudLast>localLast){
+      Object.keys(data.data).forEach(k=>{
+        try{localStorage.setItem('lu_'+k,JSON.stringify(data.data[k]));}catch(e){}
+      });
+      DBset('_last_update',cloudLast);
+      toast('☁️ 已从云端同步');
+      if(currentTab==='todo')renderTodo();
+      else if(currentTab==='calendar')renderBigCal();
+      else renderDiary();
+    }else if(localLast>cloudLast){
+      sbPushData(true);
+    }
+  }catch(e){
+    /* 网络错误静默处理，不弹窗，不影响本地使用 */
+    console.warn('Cloud sync pull failed:',e.message);
+  }
+  finally{sbSyncing=false;}
+}
+
+function sbPushData(force){
+  if(!sbUser||(sbSyncing&&!force))return;
+  clearTimeout(sbPushTimer);
+  sbPushTimer=setTimeout(async()=>{
+    try{
+      const now=new Date().toISOString();
+      const allData={};
+      Object.keys(localStorage).forEach(k=>{
+        if(k.indexOf('lu_')===0&&k!=='lu__last_update'){
+          try{allData[k.slice(3)]=JSON.parse(localStorage.getItem(k));}catch(e){}
+        }
+      });
+      const {error}=await sbClient.from('workbench_data').upsert({
+        user_id:sbUser.id,data:allData,updated_at:now
+      },{onConflict:'user_id'});
+      if(error)throw error;
+      DBset('_last_update',new Date(now).getTime());
+    }catch(e){
+      /* 网络错误静默处理，数据保留在本地，下次自动重试 */
+      console.warn('Cloud sync push failed:',e.message);
+    }
+  },force?0:1500);
+}
+
+function sbShowLogin(){
+  if(sbUser){
+    if(confirm('确定退出登录？退出后数据仍保留在本地')){
+      sbClient.auth.signOut();
+      toast('已退出登录');
+    }
+    return;
+  }
+  if(!sbClient){toast('同步初始化中，请稍候...');return;}
+  
+  document.getElementById('modalRoot').innerHTML=`
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-title">☁️ 云端同步 · 登录/注册</div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+          登录后数据自动同步到云端，换设备也不丢失<br>
+          <span style="color:var(--green);">✓ 不登录也能正常使用，数据安全保存在本地</span>
+        </p>
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <input class="input" type="email" id="loginEmail" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码</label>
+          <input class="input" type="password" id="loginPassword" placeholder="至少6位">
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+          <button class="btn btn-primary" onclick="sbDoLogin()">登录/注册</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function sbDoLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  if(!email||!password){toast('请填写邮箱和密码');return;}
+  if(!sbClient){toast('同步服务初始化中，请稍候再试');return;}
+  
+  const btn=document.querySelector('#modalRoot .btn-primary');
+  if(btn){btn.textContent='登录中...';btn.disabled=true;}
+  
+  try{
+    /* 先尝试登录 */
+    let {data,error}=await sbClient.auth.signInWithPassword({email,password});
+    if(error){
+      /* 登录失败，尝试注册 */
+      ({data,error}=await sbClient.auth.signUp({email,password}));
+      if(error){
+        if(error.message.includes('fetch')||error.message.includes('network')||error.message.includes('Failed')){
+          toast('云端服务暂时不可用，数据已安全保存在本地');
+        }else if(error.message.includes('Invalid')){
+          toast('邮箱或密码错误，请重试');
+        }else if(error.message.includes('already')){
+          toast('该邮箱已注册，请直接登录');
+        }else{
+          toast(error.message);
+        }
+        if(btn){btn.textContent='登录/注册';btn.disabled=false;}
+        return;
+      }
+      toast('注册成功！已自动登录');
+    }else{
+      toast('登录成功！正在同步数据...');
+    }
+    closeModal();
+  }catch(e){
+    if(e.message.includes('fetch')||e.message.includes('network')||e.message.includes('Failed')){
+      toast('云端服务暂时不可用，数据已安全保存在本地');
+    }else{
+      toast('登录失败：'+e.message);
+    }
+    if(btn){btn.textContent='登录/注册';btn.disabled=false;}
+  }
+}
+
+/* ========== 初始历史数据 ========== */
+const INITIAL_TODOS={};
+
+/* 数据版本号：每次更新初始数据时修改，会自动覆盖旧缓存 */
+const DATA_VERSION='20261008_empty';
+
+/* 首次打开时自动加载历史数据 */
+(function initData(){
+  const savedVersion=DBget('data_version','');
+  const existingTodos=DBget('todos',null);
+  
+  /* 如果版本号变化，或者没有数据，就加载初始数据 */
+  if(savedVersion!==DATA_VERSION||!existingTodos||Object.keys(existingTodos).length===0){
+    DBset('todos',INITIAL_TODOS);
+    DBset('data_version',DATA_VERSION);
+    console.log('已加载最新待办数据（版本:'+DATA_VERSION+'）：'+Object.keys(INITIAL_TODOS).length+'天');
+  }
+  
+  /* 加载历史日记数据 */
+  const existingDiary=DBget('diary',null);
+  if(!existingDiary||existingDiary.length===0){
+    const INITIAL_DIARY=[];
+    DBset('diary',INITIAL_DIARY);
+    console.log('已加载历史日记数据：5条');
+  }
+})();
+
+/* ========== 定期备份提醒 ========== */
+const BACKUP_REMIND_DAYS=7; /* 每7天提醒一次备份 */
+
+function checkBackupReminder(){
+  const lastBackup=DBget('last_backup_time',0);
+  const now=Date.now();
+  const daysSinceBackup=Math.floor((now-lastBackup)/(1000*60*60*24));
+  
+  /* 如果超过7天没有备份，弹出提醒 */
+  if(daysSinceBackup>=BACKUP_REMIND_DAYS){
+    setTimeout(()=>{
+      document.getElementById('modalRoot').innerHTML=`
+        <div class="modal-overlay">
+          <div class="modal">
+            <div class="modal-title">💾 定期备份提醒</div>
+            <div style="font-size:14px;line-height:1.8;margin-bottom:16px;">
+              你已经 <strong style="color:#d48080;">${daysSinceBackup}天</strong> 没有备份数据了！<br><br>
+              <span style="color:var(--text2);font-size:13px;">
+                ⚠️ 网页链接可能会过期，浏览器缓存也可能被清理<br>
+                建议定期导出备份文件，确保数据安全不丢失
+              </span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn btn-primary" onclick="closeModal();showBackupMenu();">📤 立即导出备份</button>
+              <button class="btn btn-secondary" onclick="dismissBackupReminder()">⏰ 3天后再提醒</button>
+              <button class="btn btn-secondary" onclick="closeModal()">稍后再说</button>
+            </div>
+          </div>
+        </div>`;
+    },2000);
+  }
+}
+
+function dismissBackupReminder(){
+  /* 3天后再提醒 */
+  DBset('last_backup_time',Date.now()-(BACKUP_REMIND_DAYS-3)*24*60*60*1000);
+  closeModal();
+  toast('好的，3天后再提醒你');
+}
+
+/* ========== 初始化 ========== */
+renderTodo();
+renderDiary();
+/* 启动待办提醒检查 */
+setTimeout(startReminderCheck,1000);
+/* 检查备份提醒 */
+setTimeout(checkBackupReminder,3000);
+</script>
+</body>
+</html>
